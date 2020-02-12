@@ -148,7 +148,7 @@ p2 <- ggplot(output_graph, aes(x=reorder(metabolites,p_unique), y=HR, color=mode
   labs(colour = "Model") +
   geom_hline(yintercept = 1,linetype=3)
 p3 <- p2 + geom_text(data=output_graph, 
-                     aes( x = metabolites, y= 1.3, label = metabolites,angle=45 ), 
+                     aes( x = metabolites, y= 1.3, label = ifelse(model==1,metabolites,""),angle=45 ), 
                      size = 2, show.legend = FALSE, colour = "black")
 
 
