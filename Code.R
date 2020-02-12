@@ -49,7 +49,7 @@ a <- seq(from=start,to=ncol(Data),by=1)
 for (i in 1:length(a)){
   coxreg[[i]] <- coxph(Surv(Time, Endpoint) ~ Data[,a[i]] 
                        
-                        #+age+female
+                        +age+female
                       # + SBP+current_smoker+ALKO_B+pr_dm+AHT_B+pr_hf+pr_mc
                       # +LNNtBNP
                        , data = Data
@@ -126,13 +126,10 @@ output_graph <- output_both %>%
 
 ##### Create ggplot #####
 p1 <- ggplot(output_graph, aes(x=reorder(metabolites,-p), y=HR, group=model, color=model, ymin=lowint,ymax=highint)) +
-  geom_pointrange(position = position_dodge(width =0.5))
-#+ facet_wrap(~ model)
-+  theme(panel.background = element_rect(fill="white"),axis.text.y = element_text(size =7),axis.ticks.y = element_line(size=0.1))+
-  geom_point(size=3, shape=21,position = position_dodge(width =0.5)) +
+  geom_pointrange(position = position_dodge(width =-0.5))+
+  theme(panel.background = element_rect(fill="white"),axis.text.y = element_text(size =7),axis.ticks.y = element_line(size=0.1))+
+  geom_point(size=3, shape=21,position = position_dodge(width =-0.5)) +
   coord_flip() +
-  #labs(colour = "-log10 p") +
- # scale_colour_gradient(low = "blue", high = "red")+
   geom_hline(yintercept = 1,linetype=2)+
   xlab("Metabolites")+
   ylab("HR")
@@ -149,7 +146,7 @@ if(create_excel == TRUE){
 } else {
   paste("Excel file is not created as per instruction")
 }
-##### exports ggplot to excel #####
+##### exports ggplot#####
 if(create_ggplot == TRUE){
   pdf(paste(path,filenamestart,DV,filetype[2],sep=""))
   print(p1) 
