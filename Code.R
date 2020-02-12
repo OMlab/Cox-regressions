@@ -30,8 +30,7 @@ follow_up <- "fuaf"                        #enter time varible
 
 create_excel = FALSE                       
 create_excel = TRUE                       # Run this line if you want an excel file to be created
-create_ggplot = FALSE
-create_ggplot = TRUE                     # Run this line if you want an ggplot file to be created
+create_ggplot = 2 #                    # 1 = classic ggplot, 2 = metabolites on x-axis, 0 = no ggplot
 
 ## Remakes the input from DV and follo_up into numeric
 Endpoint <- as.numeric(t(Data[paste(DV)]))		
@@ -87,20 +86,22 @@ output <- data.frame(matrix(nrow=length(e),ncol=1))
 output["metabolites"] <- c(names(Data[start:ncol(Data)]))
 output["p"] <- sapply(e,"p")
 output["p_fdr"] <- p.adjust(output["p"][,1],method="fdr",n=nrow(output["p"]))
-output["p_selection"] <- p.adjust(output["p"][,1],method="fdr",n=nrow(output["p"]))
+output["p_unique"] <- sapply(e,"p") # this variable is for sorting both data-sets according to the p-value of model 1
+output["p_selection"] <- p.adjust(output["p"][,1],method="fdr",n=nrow(output["p"])) # this variable is for selection to the ggplot
 output["HR"] <- sapply(e,"HR")
 output["lowint"] <- sapply(e,"lowint")
 output["highint"] <- sapply(e,"highint")
 output["p_pHz_met"] <- vapply(e,"p_pHz_met", numeric(1))
 output["p_pHz_mod"] <- sapply(e,"p_pHz_mod")
-output["model"] <- as.factor(1)
+output["model"] <- as.factor(1) #using as factor makes the ggplot behave
 
 #####output for the second model#####
 output2 <- data.frame(matrix(nrow=length(e),ncol=1))
 output2["metabolites"] <- c(names(Data[start:ncol(Data)]))
 output2["p"] <- sapply(e,"p_adjusted")
 output2["p_fdr"] <- p.adjust(output2["p"][,1],method="fdr",n=nrow(output2["p"]))
-output2["p_selection"] <- p.adjust(output["p"][,1],method="fdr",n=nrow(output["p"]))
+output2["p_unique"] <- sapply(e,"p") # this variable is for sorting both data-sets according to the p-value of model 1
+output2["p_selection"] <- p.adjust(output["p"][,1],method="fdr",n=nrow(output["p"])) # this variable is for selection to the ggplot
 output2["HR"] <- sapply(e,"HR_adjusted")
 output2["lowint"] <- sapply(e,"lowint_adjusted")
 output2["highint"] <- sapply(e,"highint_adjusted")
@@ -113,7 +114,7 @@ drops <- c("matrix.nrow...length.e...ncol...1.")
 output <- output[ , !(names(output) %in% drops)]
 output2 <- output2[ , !(names(output2) %in% drops)]
 output <- output[order(output$p,decreasing=FALSE),]
-output2 <- output2[order(output2$p_selection,decreasing=FALSE),]
+output2 <- output2[order(output2$p_unique,decreasing=FALSE),]
 output_both <-rbind(output, output2)
 
 filetype <- c(".xlsx",".pdf",".eps")
@@ -121,10 +122,10 @@ filetype <- c(".xlsx",".pdf",".eps")
 
 output_graph <- output_both %>%
   group_by(model) %>%
-  filter(p_selection < 0.05) 
+  filter(p_selection < 0.05) #p selection is the fdr-value of model one in both dataframes, therfore, it selects all fdr-significant in model 1 to be analyzed in model 2 aswell
  
 
-##### Create ggplot #####
+##### Create ggplots #####
 p1 <- ggplot(output_graph, aes(x=reorder(metabolites,-p), y=HR, group=model, color=model, ymin=lowint,ymax=highint)) +
   geom_pointrange(position = position_dodge(width =-0.5))+
   theme(panel.background = element_rect(fill="white"),axis.text.y = element_text(size =7),axis.ticks.y = element_line(size=0.1))+
@@ -133,12 +134,31 @@ p1 <- ggplot(output_graph, aes(x=reorder(metabolites,-p), y=HR, group=model, col
   geom_hline(yintercept = 1,linetype=2)+
   xlab("Metabolites")+
   ylab("HR")
+
+p2 <- ggplot(output_graph, aes(x=reorder(metabolites,p_unique), y=HR, color=model
+                       , ymin=lowint,ymax=highint)) + 
+  geom_pointrange(position = position_dodge(width =0.5))+ 
+  scale_y_discrete(limits = c(0,0.6,0.7,0.8,0.9,1,1.1,1.2,1.3,1.4,2))+
+  theme(panel.background = element_rect(fill="white"),
+        axis.text.y = element_text(size =7),axis.ticks.y = element_line(size=0.1),
+        axis.text.x = element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.x=element_blank())+
+  geom_point(size=1, position = position_dodge(width =0.5)) +
+  labs(colour = "Model") +
+  geom_hline(yintercept = 1,linetype=3)
+p3 <- p2 + geom_text(data=output_graph, 
+                     aes( x = metabolites, y= 1.3, label = metabolites,angle=45 ), 
+                     size = 2, show.legend = FALSE, colour = "black")
+
+
+
 ##### creates a new data-frame and exports it to excel#####
 output$model <- 1
 output2$model <- 2
 output_excel <- cbind(output, output2)
 
-output_excel <- output_excel[c(-4,-14)] #removes p_selection
+output_excel <- output_excel[c(-4,-5,-15,-16)] #removes p_selection and p_unique
 if(create_excel == TRUE){
   write.xlsx(output_excel,paste(path,filenamestart,DV,filetype[1],sep=""))
   
@@ -146,14 +166,22 @@ if(create_excel == TRUE){
 } else {
   paste("Excel file is not created as per instruction")
 }
-##### exports ggplot#####
-if(create_ggplot == TRUE){
+##### exports ggplot  #####
+
+## here is a selection between two different ggplots depening on the create_ggplot_variable
+if(create_ggplot == 1){
   pdf(paste(path,filenamestart,DV,filetype[2],sep=""))
   print(p1) 
    dev.off()
   
-  paste("ggplot created ",path,filenamestart,DV,filetype[2],sep="")
-} else {
+  paste("Classic ggplot created ",path,filenamestart,DV,filetype[2],sep="")
+} else if(create_ggplot == 2){ 
+  pdf(paste(path,filenamestart,DV,filetype[2],sep=""))
+  print(p3) 
+  dev.off()
+  
+  paste("Modern ggplot created ",path,filenamestart,DV,filetype[2],sep="")
+}else{
   paste("ggplot not created as per instruction")
 }
 
